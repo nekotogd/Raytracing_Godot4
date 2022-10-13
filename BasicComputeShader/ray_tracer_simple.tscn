@@ -1,0 +1,56 @@
+[gd_scene load_steps=5 format=3 uid="uid://dbvdfcyk1s0gt"]
+
+[ext_resource type="Script" path="res://BasicComputeShader/ray_tracer_simple.gd" id="1_ykyxn"]
+[ext_resource type="Script" path="res://free_look_camera.gd" id="2_6yunc"]
+[ext_resource type="Script" path="res://BasicComputeShader/ComputeOutput.gd" id="2_ta36a"]
+[ext_resource type="Script" path="res://BasicComputeShader/FPSLabel.gd" id="4_p1ni1"]
+
+[node name="Scene" type="Node3D"]
+script = ExtResource("1_ykyxn")
+
+[node name="Camera3d" type="Camera3D" parent="."]
+current = true
+script = ExtResource("2_6yunc")
+mouse_sensitivity = 0.1
+
+[node name="RayTracerSimple" type="Control" parent="Camera3d"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ComputeOutput" type="TextureRect" parent="Camera3d/RayTracerSimple"]
+custom_minimum_size = Vector2i(1152, 648)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_ta36a")
+
+[node name="FPSLabel" type="Label" parent="Camera3d/RayTracerSimple"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -54.0
+offset_bottom = 26.0
+grow_horizontal = 0
+text = "FPS: 60"
+script = ExtResource("4_p1ni1")
+
+[node name="Label" type="Label" parent="Camera3d/RayTracerSimple"]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 23.0
+text = "Right-Click and Drag Mouse to look around
+
+Use WASD to move"
+
+[node name="DirectionalLight3d" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.652138, 0.4459, -0.613098, 0, 0.80873, 0.588181, 0.7581, -0.383575, 0.527403, 0, 0, 0)

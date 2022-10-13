@@ -1,0 +1,244 @@
+diff --git a/BasicComputeShader/ray_tracer_simple.gd b/BasicComputeShader/ray_tracer_simple.gd
+index 67662d3..081b039 100644
+--- a/BasicComputeShader/ray_tracer_simple.gd
++++ b/BasicComputeShader/ray_tracer_simple.gd
+@@ -8,7 +8,6 @@ var pipeline
+ var image_buffer_out
+ var bindings : Array
+ var shader
+-var output_tex : RID
+ 
+ @onready var directional_light : DirectionalLight3D = $DirectionalLight3d
+ @onready var texture_rect = $Camera3d/RayTracerSimple/ComputeOutput
+@@ -23,85 +22,11 @@ func _ready():
+ 	
+ 	setup_compute()
+ 	render()
+-	
+-#	await get_tree().process_frame
+-#	var rect := Rect2(Vector2.ZERO, image_size)
+-#	RenderingServer.canvas_item_add_texture_rect($CanvasLayer/Node2d.get_canvas_item(), rect, output_tex)
+ 
+ func _process(delta):
+ 	update_compute()
+ 	render(delta)
+ 
+-class Sphere:
+-	var pos : Vector3
+-	var radius : float
+-	var albedo : Vector3
+-	var specular : Vector3
+-	
+-	func get_bytes() -> PackedByteArray:
+-		var package_data := PackedFloat32Array([
+-			pos.x, pos.y, pos.z,
+-			radius,
+-			albedo.x, albedo.y, albedo.z,
+-			specular.x, specular.y, specular.z,
+-		])
+-		var bytes : PackedByteArray = package_data.to_byte_array()
+-		return bytes
+-
+-func get_spheres_data(arr : Array):
+-	var sphere_centers := PackedFloat32Array()
+-	var sphere_radii := PackedFloat32Array()
+-	var sphere_albedos := PackedFloat32Array()
+-	var sphere_speculars := PackedFloat32Array()
+-	
+-	for s in arr:
+-		if s is Sphere:
+-			sphere_centers.append(s.pos.x)
+-			sphere_centers.append(s.pos.y)
+-			sphere_centers.append(s.pos.z)
+-			
+-			sphere_radii.append(s.radius)
+-			
+-			sphere_albedos.append(s.albedo.x)
+-			sphere_albedos.append(s.albedo.y)
+-			sphere_albedos.append(s.albedo.z)
+-			
+-			sphere_speculars.append(s.specular.x)
+-			sphere_speculars.append(s.specular.y)
+-			sphere_speculars.append(s.specular.z)
+-	
+-	var sphere_centers_bytes : PackedByteArray = sphere_centers.to_byte_array()
+-	var sphere_radii_bytes : PackedByteArray = sphere_radii.to_byte_array()
+-	var sphere_albedos_bytes : PackedByteArray = sphere_albedos.to_byte_array()
+-	var sphere_speculars_bytes : PackedByteArray = sphere_speculars.to_byte_array()
+-	
+-	var sphere_centers_buffer = rd.storage_buffer_create(sphere_centers_bytes.size(), sphere_centers_bytes)
+-	var sphere_radii_buffer = rd.storage_buffer_create(sphere_radii_bytes.size(), sphere_radii_bytes)
+-	var sphere_albedos_buffer = rd.storage_buffer_create(sphere_albedos_bytes.size(), sphere_albedos_bytes)
+-	var sphere_speculars_buffer = rd.storage_buffer_create(sphere_speculars_bytes.size(), sphere_speculars_bytes)
+-	
+-	var sphere_centers_uniform := RDUniform.new()
+-	var sphere_radii_uniform := RDUniform.new()
+-	var sphere_albedos_uniform := RDUniform.new()
+-	var sphere_speculars_uniform := RDUniform.new()
+-	
+-	sphere_centers_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+-	sphere_radii_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+-	sphere_albedos_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+-	sphere_speculars_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+-	
+-	sphere_centers_uniform.binding = 4
+-	sphere_radii_uniform.binding = 5
+-	sphere_albedos_uniform.binding = 6
+-	sphere_speculars_uniform.binding = 7
+-	
+-	sphere_centers_uniform.add_id(sphere_centers_buffer)
+-	sphere_albedos_uniform.add_id(sphere_albedos_buffer)
+-	sphere_radii_uniform.add_id(sphere_radii_buffer)
+-	sphere_speculars_uniform.add_id(sphere_speculars_buffer)
+-	
+-	return [sphere_centers_uniform, sphere_radii_uniform, sphere_albedos_uniform, sphere_speculars_uniform]
+-
+ func matrix_to_bytes(t : Transform3D):
+ 	var basis : Basis = t.basis
+ 	var origin : Vector3 = t.origin
+@@ -120,6 +45,27 @@ func setup_compute():
+ 	shader = rd.shader_create_from_spirv(shader_spirv)
+ 	pipeline = rd.compute_pipeline_create(shader)
+ 	
++	# Data for compute shaders has to come as an array of bytes
++	# Image data buffer, will be the output of the compute shader
++	var image_buffer_bytes := PackedByteArray()
++	image_buffer_bytes.resize(image_size.x * image_size.y * 4 * 4)
++	var image_buffer_size_bytes : int = image_size.x * 4 * 4 + image_size.y * 4 * 4
++	image_buffer_size_bytes = image_buffer_bytes.size()
++	image_buffer_out = rd.storage_buffer_create(image_buffer_size_bytes, image_buffer_bytes)
++	var image_buffer_uniform := RDUniform.new()
++	image_buffer_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
++	image_buffer_uniform.binding = 0
++	image_buffer_uniform.add_id(image_buffer_out)
++	
++	# Size Data buffer, so that the compute shader knows the image dimensions
++	# Create buffer for sending grid size data to array.
++	var size_data_bytes : PackedByteArray = PackedInt32Array([image_size.x, image_size.y]).to_byte_array()
++	var size_data_buffer = rd.storage_buffer_create(8, size_data_bytes)
++	var size_data_uniform := RDUniform.new()
++	size_data_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
++	size_data_uniform.binding = 1
++	size_data_uniform.add_id(size_data_buffer)
++	
+ 	# Camera Matrices Buffer
+ 	var cam_to_world : Transform3D = camera.global_transform
+ 	var camera_matrices_bytes := PackedByteArray()
+@@ -128,7 +74,7 @@ func setup_compute():
+ 	var camera_matrices_buffer = rd.storage_buffer_create(camera_matrices_bytes.size(), camera_matrices_bytes)
+ 	var camera_matrices_uniform := RDUniform.new()
+ 	camera_matrices_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+-	camera_matrices_uniform.binding = 0
++	camera_matrices_uniform.binding = 2
+ 	camera_matrices_uniform.add_id(camera_matrices_buffer)
+ 	
+ 	# Directional Light Buffer
+@@ -141,7 +87,7 @@ func setup_compute():
+ 	var light_data_buffer = rd.storage_buffer_create(light_data_bytes.size(), light_data_bytes)
+ 	var light_data_uniform := RDUniform.new()
+ 	light_data_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+-	light_data_uniform.binding = 1
++	light_data_uniform.binding = 3
+ 	light_data_uniform.add_id(light_data_buffer)
+ 	
+ 	# Output Texture Buffer
+@@ -149,20 +95,14 @@ func setup_compute():
+ 	fmt.width = image_size.x
+ 	fmt.height = image_size.y
+ 	fmt.format = RenderingDevice.DATA_FORMAT_R32G32B32A32_SFLOAT
+-	
+-	fmt.usage_bits = RenderingDevice.TEXTURE_USAGE_CAN_UPDATE_BIT
+-	fmt.usage_bits += RenderingDevice.TEXTURE_USAGE_STORAGE_BIT
+-	fmt.usage_bits += RenderingDevice.TEXTURE_USAGE_CAN_COPY_FROM_BIT
+-	fmt.usage_bits += RenderingDevice.TEXTURE_USAGE_CPU_READ_BIT
+-	fmt.usage_bits += RenderingDevice.TEXTURE_USAGE_INPUT_ATTACHMENT_BIT
+-	
++	fmt.usage_bits = RenderingDevice.TEXTURE_USAGE_CAN_UPDATE_BIT + RenderingDevice.TEXTURE_USAGE_STORAGE_BIT
+ 	var view := RDTextureView.new()
+ 	var output_image := Image.new()
+ 	output_image.create(image_size.x, image_size.y, false, Image.FORMAT_RGBAF)
+-	output_tex = rd.texture_create(fmt, view, [output_image.get_data()])
++	var output_tex : RID = rd.texture_create(fmt, view, [output_image.get_data()])
+ 	var output_tex_uniform := RDUniform.new()
+ 	output_tex_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
+-	output_tex_uniform.binding = 2
++	output_tex_uniform.binding = 4
+ 	output_tex_uniform.add_id(output_tex)
+ 	
+ 	# Global Parameters
+@@ -172,28 +112,18 @@ func setup_compute():
+ 	var params_buffer = rd.storage_buffer_create(params.size(), params)
+ 	var params_uniform := RDUniform.new()
+ 	params_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+-	params_uniform.binding = 3
++	params_uniform.binding = 5
+ 	params_uniform.add_id(params_buffer)
+ 	
+-	var spheres : Array = []
+-	for x in range(-2, 2):
+-		for y in range(-2, 2):
+-			var s : Sphere = Sphere.new()
+-			s.pos = Vector3(x, 0, y)
+-			s.radius = 0.2
+-			s.albedo = Vector3(randf_range(0.0, 1.0), randf_range(0.0, 1.0), randf_range(0.0, 1.0))
+-			s.specular = Vector3(0.5, 0.5, 0.5)
+-			spheres.append(s)
+-	var spheres_bindings = get_spheres_data(spheres)
+-	
+ 	# Create uniform set using the storage buffers
+ 	bindings = [
++		image_buffer_uniform,
++		size_data_uniform,
+ 		camera_matrices_uniform,
+ 		light_data_uniform,
+ 		output_tex_uniform,
+-		params_uniform,
++		params_uniform
+ 	]
+-	bindings.append_array(spheres_bindings)
+ 	uniform_set = rd.uniform_set_create(bindings, shader, 0)
+ 
+ func update_compute():
+@@ -203,7 +133,7 @@ func update_compute():
+ 	var params_buffer = rd.storage_buffer_create(params.size(), params)
+ 	var params_uniform := RDUniform.new()
+ 	params_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+-	params_uniform.binding = 3
++	params_uniform.binding = 5
+ 	params_uniform.add_id(params_buffer)
+ 	
+ 	# Camera Matrices Buffer
+@@ -214,11 +144,11 @@ func update_compute():
+ 	var camera_matrices_buffer = rd.storage_buffer_create(camera_matrices_bytes.size(), camera_matrices_bytes)
+ 	var camera_matrices_uniform := RDUniform.new()
+ 	camera_matrices_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+-	camera_matrices_uniform.binding = 0
++	camera_matrices_uniform.binding = 2
+ 	camera_matrices_uniform.add_id(camera_matrices_buffer)
+ 	
+-	bindings[3] = params_uniform
+-	bindings[0] = camera_matrices_uniform
++	bindings[5] = params_uniform
++	bindings[2] = camera_matrices_uniform
+ 	uniform_set = rd.uniform_set_create(bindings, shader, 0)
+ 
+ func render(delta : float = 0.0):
+@@ -231,7 +161,6 @@ func render(delta : float = 0.0):
+ 	# Binds the uniform set with the data we want to give our shader
+ 	rd.compute_list_bind_uniform_set(compute_list, uniform_set, 0)
+ 	# Dispatch (X,Y,Z) work groups
+-	@warning_ignore(integer_division)
+ 	rd.compute_list_dispatch(compute_list, image_size.x / 8, image_size.y / 8, 1)
+ 	
+ 	# Tell the GPU we are done with this compute task
+@@ -242,6 +171,8 @@ func render(delta : float = 0.0):
+ 	rd.sync()
+ 	
+ 	# Now we can grab our data from the storage buffer
+-#	var byte_data : PackedByteArray = rd.buffer_get_data(image_buffer_out)
+-	var byte_data : PackedByteArray = rd.texture_get_data(output_tex, 0)
++	var byte_data : PackedByteArray = rd.buffer_get_data(image_buffer_out)
+ 	texture_rect.set_data(byte_data)
++	
++#	var rect := Rect2(Vector2.ZERO, image_size)
++#	RenderingServer.canvas_item_add_texture_rect($CanvasLayer/Node2d.get_canvas_item(), rect, output_tex)
