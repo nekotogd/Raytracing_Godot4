@@ -22,7 +22,7 @@ For now, please use this repository as a reference or a learning resource to und
 
 ## YouTube video (includes code explanation)
 
-[![Watch the video](https://img.youtube.com/vi/ueUMr92GQJc/default.jpg)](https://youtu.be/ueUMr92GQJc)
+[![Watch the video](https://img.youtube.com/vi/ueUMr92GQJc/maxresdefault.jpg)](https://youtu.be/ueUMr92GQJc)
 
 ## References and Resources
 
