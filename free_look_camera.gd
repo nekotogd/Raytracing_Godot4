@@ -18,15 +18,21 @@ func _process(_delta):
 	_move()
 
 func _move():
-	var input_vector := Vector2.ZERO
+	var input_vector := Vector3.ZERO
 	input_vector.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
-	input_vector.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
+	input_vector.z = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
+	input_vector.y = Input.get_action_strength("move_v_up") - Input.get_action_strength("move_v_down")
 	if input_vector.length() > 1.0:
 		input_vector = input_vector.normalized()
 	
 	var displacement := Vector3.ZERO
-	displacement = global_transform.basis.z * move_speed * input_vector.y
+	displacement = global_transform.basis.z * move_speed * input_vector.z
 	global_transform.origin += displacement
 	
 	displacement = global_transform.basis.x * move_speed * input_vector.x
 	global_transform.origin += displacement
+	
+	displacement = global_transform.basis.y * move_speed * input_vector.y
+	global_transform.origin -= displacement
+	# should be += displacement, but my compute shader is negative y-up for some reason
+	# TODO: Debug why the compute shader is negative y-up

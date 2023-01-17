@@ -50,7 +50,7 @@ offset_right = 40.0
 offset_bottom = 23.0
 text = "Right-Click and Drag Mouse to look around
 
-Use WASD to move"
+Use WASD and QE to move"
 
 [node name="DirectionalLight3d" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.652138, 0.4459, -0.613098, 0, 0.80873, 0.588181, 0.7581, -0.383575, 0.527403, 0, 0, 0)
