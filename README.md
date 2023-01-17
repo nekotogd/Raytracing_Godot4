@@ -1,4 +1,4 @@
-# Raytracing using Compute Shaders! (Godot 4 beta 1)
+# Raytracing using Compute Shaders! (Updated to Godot 4 beta 13)
 
 ## Relevant files
 
