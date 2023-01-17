@@ -83,8 +83,7 @@ func setup_compute():
 	fmt.format = RenderingDevice.DATA_FORMAT_R32G32B32A32_SFLOAT
 	fmt.usage_bits = RenderingDevice.TEXTURE_USAGE_CAN_UPDATE_BIT | RenderingDevice.TEXTURE_USAGE_STORAGE_BIT | RenderingDevice.TEXTURE_USAGE_CAN_COPY_FROM_BIT
 	var view := RDTextureView.new()
-	var output_image := Image.new()
-	output_image.create(image_size.x, image_size.y, false, Image.FORMAT_RGBAF)
+	var output_image := Image.create(image_size.x, image_size.y, false, Image.FORMAT_RGBAF)
 	output_tex = rd.texture_create(fmt, view, [output_image.get_data()])
 	var output_tex_uniform := RDUniform.new()
 	output_tex_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
