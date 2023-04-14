@@ -5,7 +5,6 @@ var global_time : float = 0.0
 var rd = RenderingServer.create_local_rendering_device()
 var uniform_set
 var pipeline
-var image_buffer_out
 var bindings : Array
 var shader
 var output_tex : RID
